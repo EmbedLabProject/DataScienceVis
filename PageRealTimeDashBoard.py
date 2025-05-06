@@ -10,6 +10,23 @@ from Constant import *
 from Plot import *
 
 # Just find a way to get the data and put it in the render_case_card, the paramters should be self explainatory
+df = pd.DataFrame()
+is_df_load = False
+
+def get_df() :
+    global is_df_load
+    global df
+    if(is_df_load) :
+        return df
+    df = pd.read_csv('DataVis.csv')
+
+def get_flag() :
+    global is_df_load
+    global df
+    if(is_df_load) :
+        return df
+    df = pd.read_csv('DataVis.csv')
+
 
 def render_case_card(image_url, address_string, status_string, time, description, tags, estimate_time, confidence_percent):
     tags_html = "".join([
