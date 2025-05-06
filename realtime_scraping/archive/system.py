@@ -1,112 +1,20 @@
-from confluent_kafka import Consumer
-from sklearn.preprocessing import MultiLabelBinarizer
-from fastavro import parse_schema, schemaless_reader
-import io, json, pandas as pd
-import time
-import math
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from datetime import datetime, timedelta
+import pandas as pd
 import numpy as np
 import xgboost as xgb
-from datetime import datetime
-from datetime import datetime, timezone
+import math
 import re
-################## config here #######################################
+import os
+from sklearn.preprocessing import MultiLabelBinarizer
 
-# current path used is the relative path from this folder route
-# open schema file, change path to your syatem path
-schema = {
-  "type": "record",
-  "name": "TraffyReport",
-  "fields": [
-    {"name": "ticket_id", "type": "string"},
-    {"name": "report_time", "type": "string"},
-    {"name": "address", "type": "string"},
-    {"name": "district", "type": "string"},         # <-- added
-    {"name": "subdistrict", "type": "string"},      # <-- added
-    {"name": "status", "type": "string"},
-    {"name": "description", "type": "string"},
-    {"name": "resolution", "type": "string"},
-    {"name": "reporting_agency", "type": "string"},
-    {"name": "tags", "type": "string"},
-    {"name": "upvotes", "type": "int"},
-    {"name": "image_url", "type": "string"},
-    {"name": "latitude", "type": ["null", "double"], "default": None},
-    {"name": "longitude", "type": ["null", "double"], "default": None}
-  ]
-}
-
-parsed_schema = parse_schema(schema)
-
-# Kafka consumer setup, please replace the server and and group if needed
-consumer = Consumer({
-    'bootstrap.servers': 'localhost:9092',
-    'group.id': 'traffy-csv-timer',
-    'auto.offset.reset': 'earliest'
-})
-
-# topic setup, change the text inside to the topic in producer
-consumer.subscribe(["traffy_reports"])
-
-# output path, where your csv will be at
-csv_path = "./realtime_scraping/out/traffy_reports_latest.csv"
+# ---------------- CONFIG ----------------
+stream_csv_path = "./realtime_scraping/out/traffy_reports_stream.csv"
+output_csv_path = "./realtime_scraping/out/traffy_reports_latest.csv"
 model_path = "./model.json"
 
-
-
-# set the amount to the same as producer
-report_per_scan = 6
-###################################################################
-
-
-def convert_thai_datetime(thai_str):
-    # Clean and normalize
-    thai_str = re.sub(r'น\.?|น', '', thai_str).strip()
-    parts = thai_str.split()
-
-    if len(parts) != 4:
-        raise ValueError(f"Unexpected datetime format: {thai_str}")
-
-    day = int(parts[0])
-    month_thai = parts[1]
-    year_be = int(parts[2])
-    time_part = parts[3]
-
-    month_map = {
-        'ม.ค.': 1, 'ก.พ.': 2, 'มี.ค.': 3, 'เม.ย.': 4,
-        'พ.ค.': 5, 'มิ.ย.': 6, 'ก.ค.': 7, 'ส.ค.': 8,
-        'ก.ย.': 9, 'ต.ค.': 10, 'พ.ย.': 11, 'ธ.ค.': 12
-    }
-
-    month = month_map.get(month_thai)
-    if not month:
-        raise ValueError(f"Unknown Thai month: {month_thai}")
-
-    year_ad = year_be + 2500 - 543 if year_be < 100 else year_be - 543
-
-    dt_str = f"{year_ad}-{month:02d}-{day:02d} {time_part}"
-    dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M")
-
-    # Return string without timezone (naive datetime)
-    #return dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # keep microseconds if needed
-    print(dt_str+':09.453003+00')
-    return dt_str+':09.453003+00'
-
-# Recreate the model with the same parameters
-model = xgb.XGBClassifier(
-    objective='multi:softprob',
-    num_class=6,
-    use_label_encoder=False,
-    eval_metric='mlogloss',
-    n_estimators=1500,
-    learning_rate=0.05,
-    max_depth=10,
-    random_state=42,
-    early_stopping_rounds=15,
-    alpha=1,
-)
-
-# Load the model structure into the internal Booster
-model.load_model(model_path)
-
+# ---------------- DISTRICT COORDINATES ----------------
 district_office_location = {
     "พระนคร": (13.764928875843303, 100.49876110201305),
     "ดุสิต": (13.777137865519553, 100.52060070041834),
@@ -160,6 +68,42 @@ district_office_location = {
     "บางบอน": (13.63394263372994, 100.3689626684714)
 }
 
+model = xgb.Booster()
+model.load_model(model_path)
+
+def convert_thai_datetime(thai_str):
+    # Clean and normalize
+    thai_str = re.sub(r'น\.?|น', '', thai_str).strip()
+    parts = thai_str.split()
+
+    if len(parts) != 4:
+        raise ValueError(f"Unexpected datetime format: {thai_str}")
+
+    day = int(parts[0])
+    month_thai = parts[1]
+    year_be = int(parts[2])
+    time_part = parts[3]
+
+    month_map = {
+        'ม.ค.': 1, 'ก.พ.': 2, 'มี.ค.': 3, 'เม.ย.': 4,
+        'พ.ค.': 5, 'มิ.ย.': 6, 'ก.ค.': 7, 'ส.ค.': 8,
+        'ก.ย.': 9, 'ต.ค.': 10, 'พ.ย.': 11, 'ธ.ค.': 12
+    }
+
+    month = month_map.get(month_thai)
+    if not month:
+        raise ValueError(f"Unknown Thai month: {month_thai}")
+
+    year_ad = year_be + 2500 - 543 if year_be < 100 else year_be - 543
+
+    dt_str = f"{year_ad}-{month:02d}-{day:02d} {time_part}"
+    dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M")
+
+    # Return string without timezone (naive datetime)
+    #return dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # keep microseconds if needed
+    # print(dt_str+':09.453003+00')
+    return dt_str+':09.453003+00'
+
 def get_office_location(district):
     return district_office_location[district]
 
@@ -183,7 +127,6 @@ def distFromDistOff(office_coords, coords):
 # class 1 (<1 วัน): 12h, class 2 (1-3 วัน): 48h, class 3 (3-7 วัน): 120h,
 # class 4 (7-21 วัน): 336h, class 5 (21-90 วัน): 1332h, class 6 (>90 วัน): 2880h
 class_hours = np.array([12, 48, 120, 336, 1332, 2880])
-
 
 def predict_time(model, problem_types, timestamp, coords, district, subdistrict):
     """
@@ -243,74 +186,74 @@ def predict_time(model, problem_types, timestamp, coords, district, subdistrict)
 
     return preds, margins, estimated_time, total_conf, details
 
-# ตัวอย่างการเรียกใช้งาน:
-# preds, margins, est, conf, details = predict_time(
-#     model, ['คลอง','สัตว์จรจัด'], '2021-09-03 12:51:09.453003+00',
-#     "13.81865,100.53084", 'บางซื่อ', 'บางซื่อ'
-# )
-# print(f"Class probabilities: {preds}\nEstimated days: {est}\nConfidence: {conf}")
 
-print("🟢 Consumer started. Will overwrite every 5 minutes...")
 
-try:
-    while True:
-        batch = []
-        start_time = time.time()
+def reset_csv():
+    open(stream_csv_path, 'w').close()
+    print(f"🧹 Cleared file")
 
-        # collect reports during interval
-        while len(batch) < report_per_scan:
-            msg = consumer.poll(timeout=1.0)
-            if msg is None:
-                continue
-            if msg.error():
-                print("Error:", msg.error())
-                continue
+def infer_latest_reports():
+    if not os.path.exists(stream_csv_path):
+        print("⚠️ No CSV found to process.")
+        return
 
-            buf = io.BytesIO(msg.value())
-            report = schemaless_reader(buf, parsed_schema)
-            batch.append(report)
+    raw_df = pd.read_csv(stream_csv_path)
+    if raw_df.empty:
+        print("⚠️ No data found in CSV.")
+        return
 
-        # save latest batch to CSV
-        if batch:
-            predicted_batch = []
+    raw_df = raw_df.sort_values("report_time", ascending=False).head(6)
+    enriched = []
 
-            for report in batch:
-                # Extract required input fields for prediction
-                tags_raw = report.get("tags", "")
-                tags = tags_raw.split(",") if isinstance(tags_raw, str) else tags_raw
-                raw_time_str = report.get("report_time", "")
-                try:
-                    time_str = convert_thai_datetime(raw_time_str)
-                except Exception as e:
-                    print(f"Failed to convert time '{raw_time_str}': {e}")
-                    time_str = ""
-                report["report_time"] = time_str
-                lat = report.get("latitude")
-                lon = report.get("longitude")
-                location = f"{lat},{lon}" if lat is not None and lon is not None else ""
-                district = report.get("district", "")
-                subdistrict = report.get("subdistrict", "")
+    for _, report in raw_df.iterrows():
+        try:
+            tags = report["tags"].split(",") if isinstance(report["tags"], str) else []
+            time_str = convert_thai_datetime(report["report_time"])
+            report["report_time"] = time_str
+            location = f"{report['latitude']},{report['longitude']}"
+            preds, margins, est, conf, _ = predict_time(
+                model, tags, time_str, location, report["district"], report["subdistrict"]
+            )
+            report["est"] = est
+            report["conf"] = conf
+        except Exception as e:
+            print(f"⚠️ Prediction failed for ticket_id {report.get('ticket_id', 'unknown')}: {e}")
+            report["est"] = None
+            report["conf"] = None
 
-                try:
-                    # Call your model prediction function
-                    preds, margins, est, conf, details = predict_time(
-                        model, tags, time_str, location, district, subdistrict
-                    )
-                except Exception as e:
-                    print(f"⚠️ Prediction failed for ticket_id {report.get('ticket_id')}: {e}")
-                    est, conf = None, None
+        enriched.append(report)
 
-                # Add results to report
-                report["est"] = est
-                report["conf"] = conf
-                predicted_batch.append(report)
-        
-        if predicted_batch:
-            df = pd.DataFrame(predicted_batch)
-            df.to_csv(csv_path, index=False, encoding='utf-8-sig')
-            print(f"✅ {len(df)} reports (with predictions) saved to {csv_path}.")
-    
-except KeyboardInterrupt:
-    print("Stopped by user.")
-finally:
-    consumer.close()
+    pd.DataFrame(enriched).to_csv(output_csv_path, index=False, encoding='utf-8-sig')
+    print(f"✅ Saved top 6 predictions to {output_csv_path}")
+
+# ---------------- DAG DEFINITIONS ----------------
+def create_hourly_reset_dag():
+    dag = DAG(
+        dag_id="reset_traffy_csv_hourly",
+        start_date=datetime(2025, 5, 6),
+        schedule_interval="@hourly",
+        catchup=False
+    )
+    PythonOperator(
+        task_id="clear_raw_csv",
+        python_callable=reset_csv,
+        dag=dag
+    )
+    return dag
+
+def create_minutely_infer_dag():
+    dag = DAG(
+        dag_id="infer_top6_minutely",
+        start_date=datetime(2025, 5, 6),
+        schedule_interval="* * * * *",
+        catchup=False
+    )
+    PythonOperator(
+        task_id="predict_top6_latest_reports",
+        python_callable=infer_latest_reports,
+        dag=dag
+    )
+    return dag
+
+reset_dag = create_hourly_reset_dag()
+infer_dag = create_minutely_infer_dag()

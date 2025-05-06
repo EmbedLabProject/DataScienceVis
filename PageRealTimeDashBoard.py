@@ -5,27 +5,31 @@ import pydeck as pdk
 import streamlit as st
 from shapely.geometry import Point, shape
 from streamlit_folium import st_folium
+import pandas as pd
+from streamlit_extras.st_autorefresh import st_autorefresh
 
 from Constant import *
 from Plot import *
 
-# Just find a way to get the data and put it in the render_case_card, the paramters should be self explainatory
-df = pd.DataFrame()
-is_df_load = False
+# Refresh the app every 5 minutes (300000 milliseconds)
+st_autorefresh(interval=300000, key="data_reload")
+
+# Always read the file fresh on each run
+df = pd.read_csv("./realtime_scraping/out/traffy_reports_latest.csv")
+
 
 def get_df() :
     global is_df_load
     global df
     if(is_df_load) :
         return df
-    df = pd.read_csv('DataVis.csv')
+    df = pd.read_csv('./realtime_scraping/out/traffy_reports_latest.csv')
+    is_df_load = True
+    return df
 
-def get_flag() :
-    global is_df_load
-    global df
-    if(is_df_load) :
-        return df
-    df = pd.read_csv('DataVis.csv')
+
+
+
 
 
 def render_case_card(image_url, address_string, status_string, time, description, tags, estimate_time, confidence_percent):
@@ -67,63 +71,63 @@ def show() :
     col1, col2 = st.columns(2)
     with col1 :
         render_case_card(
-            image_url="https://storage.googleapis.com/traffy_public_bucket/attachment/2025-05/29eb35ff69e6029d599b9b4f2effead6.jpg",
-            address_string="123 Sukhumvit Road, Bangkok",
-            status_string="Resolved",
-            time="2025-05-05 14:30",
-            description="ถนนซอยเจริญกรุง 107 ยาวไปจนทะลุออกถนนเจริญราษฎร์ มีการเทพื้นถนนใหม่ แต่ยังไม่มีการตีเส้นพื้นถนน ประม...เพิ่มเติม",
-            tags=["Water", "Urgent", "Public Utility"],
-            estimate_time="1 hr 45 min",
-            confidence_percent=93.2
+            image_url=df.iloc[0]["image_url"],
+            address_string=df.iloc[0]["address"],
+            status_string=df.iloc[0]["status"],
+            time=df.iloc[0]["report_time"],
+            description=df.iloc[0]["description"],
+            tags=df.iloc[0]["tags"],
+            estimate_time=df.iloc[0]["est"],
+            confidence_percent=df.iloc[0]["conf"]
         )
         render_case_card(
-            image_url="https://storage.googleapis.com/traffy_public_bucket/attachment/2025-05/29eb35ff69e6029d599b9b4f2effead6.jpg",
-            address_string="123 Sukhumvit Road, Bangkok",
-            status_string="Resolved",
-            time="2025-05-05 14:30",
-            description="ถนนซอยเจริญกรุง 107 ยาวไปจนทะลุออกถนนเจริญราษฎร์ มีการเทพื้นถนนใหม่ แต่ยังไม่มีการตีเส้นพื้นถนน ประม...เพิ่มเติม",
-            tags=["Water", "Urgent", "Public Utility"],
-            estimate_time="1 hr 45 min",
-            confidence_percent=93.2
+            image_url=df.iloc[1]["image_url"],
+            address_string=df.iloc[1]["address"],
+            status_string=df.iloc[1]["status"],
+            time=df.iloc[1]["report_time"],
+            description=df.iloc[1]["description"],
+            tags=df.iloc[1]["tags"],
+            estimate_time=df.iloc[1]["est"],
+            confidence_percent=df.iloc[1]["conf"]
         )
         render_case_card(
-            image_url="https://storage.googleapis.com/traffy_public_bucket/attachment/2025-05/29eb35ff69e6029d599b9b4f2effead6.jpg",
-            address_string="123 Sukhumvit Road, Bangkok",
-            status_string="Resolved",
-            time="2025-05-05 14:30",
-            description="ถนนซอยเจริญกรุง 107 ยาวไปจนทะลุออกถนนเจริญราษฎร์ มีการเทพื้นถนนใหม่ แต่ยังไม่มีการตีเส้นพื้นถนน ประม...เพิ่มเติม",
-            tags=["Water", "Urgent", "Public Utility"],
-            estimate_time="1 hr 45 min",
-            confidence_percent=93.2
+            image_url=df.iloc[2]["image_url"],
+            address_string=df.iloc[2]["address"],
+            status_string=df.iloc[2]["status"],
+            time=df.iloc[2]["report_time"],
+            description=df.iloc[2]["description"],
+            tags=df.iloc[2]["tags"],
+            estimate_time=df.iloc[2]["est"],
+            confidence_percent=df.iloc[2]["conf"]
         )
     with col2 :
         render_case_card(
-            image_url="https://storage.googleapis.com/traffy_public_bucket/attachment/2025-05/29eb35ff69e6029d599b9b4f2effead6.jpg",
-            address_string="123 Sukhumvit Road, Bangkok",
-            status_string="Resolved",
-            time="2025-05-05 14:30",
-            description="ถนนซอยเจริญกรุง 107 ยาวไปจนทะลุออกถนนเจริญราษฎร์ มีการเทพื้นถนนใหม่ แต่ยังไม่มีการตีเส้นพื้นถนน ประม...เพิ่มเติม",
-            tags=["Water", "Urgent", "Public Utility"],
-            estimate_time="1 hr 45 min",
-            confidence_percent=93.2
+            image_url=df.iloc[3]["image_url"],
+            address_string=df.iloc[3]["address"],
+            status_string=df.iloc[3]["status"],
+            time=df.iloc[3]["report_time"],
+            description=df.iloc[3]["description"],
+            tags=df.iloc[3]["tags"],
+            estimate_time=df.iloc[3]["est"],
+            confidence_percent=df.iloc[3]["conf"]
         )
         render_case_card(
-            image_url="https://storage.googleapis.com/traffy_public_bucket/attachment/2025-05/29eb35ff69e6029d599b9b4f2effead6.jpg",
-            address_string="123 Sukhumvit Road, Bangkok",
-            status_string="Resolved",
-            time="2025-05-05 14:30",
-            description="ถนนซอยเจริญกรุง 107 ยาวไปจนทะลุออกถนนเจริญราษฎร์ มีการเทพื้นถนนใหม่ แต่ยังไม่มีการตีเส้นพื้นถนน ประม...เพิ่มเติม",
-            tags=["Water", "Urgent", "Public Utility"],
-            estimate_time="1 hr 45 min",
-            confidence_percent=93.2
+            image_url=df.iloc[4]["image_url"],
+            address_string=df.iloc[4]["address"],
+            status_string=df.iloc[4]["status"],
+            time=df.iloc[4]["report_time"],
+            description=df.iloc[4]["description"],
+            tags=df.iloc[4]["tags"],
+            estimate_time=df.iloc[4]["est"],
+            confidence_percent=df.iloc[4]["conf"]
         )
         render_case_card(
-            image_url="https://storage.googleapis.com/traffy_public_bucket/attachment/2025-05/29eb35ff69e6029d599b9b4f2effead6.jpg",
-            address_string="123 Sukhumvit Road, Bangkok",
-            status_string="Resolved",
-            time="2025-05-05 14:30",
-            description="ถนนซอยเจริญกรุง 107 ยาวไปจนทะลุออกถนนเจริญราษฎร์ มีการเทพื้นถนนใหม่ แต่ยังไม่มีการตีเส้นพื้นถนน ประม...เพิ่มเติม",
-            tags=["Water", "Urgent", "Public Utility"],
-            estimate_time="1 hr 45 min",
-            confidence_percent=93.2
+            image_url=df.iloc[5]["image_url"],
+            address_string=df.iloc[5]["address"],
+            status_string=df.iloc[5]["status"],
+            time=df.iloc[5]["report_time"],
+            description=df.iloc[5]["description"],
+            tags=df.iloc[5]["tags"],
+            estimate_time=df.iloc[5]["est"],
+            confidence_percent=df.iloc[5]["conf"]
         )
