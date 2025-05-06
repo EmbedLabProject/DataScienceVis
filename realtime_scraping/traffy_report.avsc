@@ -1,0 +1,18 @@
+{
+  "type": "record",
+  "name": "TraffyReport",
+  "fields": [
+    {"name": "ticket_id", "type": "string"},
+    {"name": "report_time", "type": "string"},
+    {"name": "address", "type": "string"},
+    {"name": "status", "type": "string"},
+    {"name": "description", "type": "string"},
+    {"name": "resolution", "type": "string"},
+    {"name": "reporting_agency", "type": "string"},
+    {"name": "tags", "type": "string"},
+    {"name": "upvotes", "type": "int"},
+    {"name": "image_url", "type": "string"},
+    {"name": "latitude", "type": ["null", "double"], "default": null},
+    {"name": "longitude", "type": ["null", "double"], "default": null}
+  ]
+}
