@@ -7,41 +7,6 @@ import pandas as pd
 import numpy as np
 from scipy.interpolate import interp1d
 
-model = xgb.XGBClassifier()
-is_model_load = False
-weight = {}
-is_weight_load = False
-
-
-def load_model() :
-    global model
-    global is_model_load
-    if(is_model_load) :
-        return
-    model.load_model("model.json") 
-    is_model_load = True
-
-def load_weight() :
-    global weight
-    global is_weight_load
-    if(is_weight_load) :
-        return
-    with open("classWight.json", "w") as f:
-        json.dump(weight, f)
-    is_weight_load = True
-
-
-
-
-def get_estimate_time(list) :
-    time = weight["time"]
-    weight = weight["weight"]
-    sum = 0
-    for i in range(len(time)) :
-        sum += time[i] * weight[i]
-    return sum
-
-
 
 def analyze_problem_types(df: pd.DataFrame, problem_types: list[str]):
     if(len(problem_types) == 0) :

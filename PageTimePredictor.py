@@ -147,10 +147,10 @@ def time_input() :
 
 def show() :
     st.title("Time Predictor")
-    lat, lon = None, None
-    selected_type = []
-    selected_date = None
-    selected_time = None
+    lat, lon = None, None # laatitude and longtitude, float
+    selected_type = [] # problem types in thai, list of string
+    selected_date = None # Date, streamlit Date
+    selected_time = None # Time, streamlit Time
 
     unknownCoord = st.checkbox("Unknown Location", value=False)
     col1, col2 = st.columns(2)
@@ -161,21 +161,26 @@ def show() :
         selected_date = date_input()
         select_time = time_input()
 
-    st.title("Result")
+    st.title("Result") # put result here
     col1, col2 = st.columns(2)
     with col1 :
-        basic_card("Estimate Time : ","15 min")
-        basic_card("Confidence : ","85 %")
+        basic_card("Estimate Time : ","15 min") # Put string specified estimated solve time
+        basic_card("Confidence : ","85 %") # Put string Confidence rate
     with col2 : 
-        plot_probabilities_pie([0.1,0.3,0.4,0.1,0.1],["1 day","2-3 days","4-5 days","6-10 days","10+ days"],300,750)
+        plot_probabilities_pie([0.1,0.3,0.4,0.1,0.1],["1 day","2-3 days","4-5 days","6-10 days","10+ days"],300,750) # Put (first parameters) probability of each class
     
     st.markdown("---")
 
-    contribution_card("Pothole Prediction", 87.3, [80, 60, 90, 70])
+
+    # Put the most confidence card on top(the first one) and the other ordered non-ascending.
+    # Put the (second parameter) the confidence rate of each class
+    # Put the (third parameter) the contribution of each input to that class with range 1-100
+    #   The feature are ordered as follows ["Problem Type", "Date", "Time", "Location"]
+    contribution_card("1 day", 87.3, [80, 60, 90, 70])
     col1, col2 = st.columns(2)
     with col1 :   
-        contribution_card("Pothole Prediction", 87.3, [80, 60, 90, 70])
-        contribution_card("Pothole Prediction", 87.3, [80, 60, 90, 70])
+        contribution_card("2-3 days", 87.3, [80, 60, 90, 70])
+        contribution_card("4-5 days", 87.3, [80, 60, 90, 70])
     with col2 :
-        contribution_card("Pothole Prediction", 87.3, [80, 60, 90, 70])
-        contribution_card("Pothole Prediction", 87.3, [80, 60, 90, 70])
+        contribution_card("6-10 days", 87.3, [80, 60, 90, 70])
+        contribution_card("10+ days", 87.3, [80, 60, 90, 70])

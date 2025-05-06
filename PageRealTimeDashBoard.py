@@ -9,6 +9,7 @@ from streamlit_folium import st_folium
 from Constant import *
 from Plot import *
 
+# Just find a way to get the data and put it in the render_case_card, the paramters should be self explainatory
 
 def render_case_card(image_url, address_string, status_string, time, description, tags, estimate_time, confidence_percent):
     tags_html = "".join([
