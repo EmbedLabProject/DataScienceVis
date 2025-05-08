@@ -1,6 +1,5 @@
 import streamlit as st
 
-from Home import show as show_home
 from PageRealTimeDashBoard import show as show_real_time_dashboard
 from PageTimePredictor import show as show_time_predictor
 from PageFeatureImportance import show as show_feature_importance
@@ -13,24 +12,20 @@ from Plot import *
 
 # Initialize session state for page navigation
 if 'page' not in st.session_state:
-    st.session_state.page = 'Home'
+    st.session_state.page = 'Time Predictor'
 st.set_page_config(layout="wide")
 
 # Sidebar with navigation buttons
 with st.sidebar:
     st.title('Navigation Bar')
-    if st.button('Home', use_container_width=True, type="primary"):
-        st.session_state.page = 'Home'
-    if st.button('Time Predictor',  use_container_width=True, type="secondary"):
+    if st.button('Time Predictor',  use_container_width=True, type="primary"):
         st.session_state.page = 'TimePredictor'
     if st.button('Feature Importance',  use_container_width=True, type="secondary"):
         st.session_state.page = 'FeatureImportance'
     if st.button('Real-time Dashboard',  use_container_width=True, type="secondary"):
         st.session_state.page = 'RealTimeDashBoard'
 
-if st.session_state.page == 'Home':
-    show_home()
-elif st.session_state.page == 'TimePredictor':
+if st.session_state.page == 'TimePredictor':
     show_time_predictor()
 elif st.session_state.page == 'FeatureImportance':
     show_feature_importance()

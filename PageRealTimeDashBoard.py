@@ -6,30 +6,19 @@ import streamlit as st
 from shapely.geometry import Point, shape
 from streamlit_folium import st_folium
 import pandas as pd
-from streamlit_extras.st_autorefresh import st_autorefresh
+import time
+# from streamlit_extras.st_autorefresh import st_autorefresh
 
 from Constant import *
 from Plot import *
 
 # Refresh the app every 5 minutes (300000 milliseconds)
-st_autorefresh(interval=300000, key="data_reload")
+# st_autorefresh(interval=300000, key="data_reload")
 
 # Always read the file fresh on each run
+# REFRESH_INTERVAL = 300
+
 df = pd.read_csv("./realtime_scraping/out/traffy_reports_latest.csv")
-
-
-def get_df() :
-    global is_df_load
-    global df
-    if(is_df_load) :
-        return df
-    df = pd.read_csv('./realtime_scraping/out/traffy_reports_latest.csv')
-    is_df_load = True
-    return df
-
-
-
-
 
 
 def render_case_card(image_url, address_string, status_string, time, description, tags, estimate_time, confidence_percent):
@@ -76,7 +65,7 @@ def show() :
             status_string=df.iloc[0]["status"],
             time=df.iloc[0]["report_time"],
             description=df.iloc[0]["description"],
-            tags=df.iloc[0]["tags"],
+            tags=df.iloc[0]["tags"].split(','),
             estimate_time=df.iloc[0]["est"],
             confidence_percent=df.iloc[0]["conf"]
         )
@@ -86,7 +75,7 @@ def show() :
             status_string=df.iloc[1]["status"],
             time=df.iloc[1]["report_time"],
             description=df.iloc[1]["description"],
-            tags=df.iloc[1]["tags"],
+            tags=df.iloc[1]["tags"].split(','),
             estimate_time=df.iloc[1]["est"],
             confidence_percent=df.iloc[1]["conf"]
         )
@@ -96,7 +85,7 @@ def show() :
             status_string=df.iloc[2]["status"],
             time=df.iloc[2]["report_time"],
             description=df.iloc[2]["description"],
-            tags=df.iloc[2]["tags"],
+            tags=df.iloc[2]["tags"].split(','),
             estimate_time=df.iloc[2]["est"],
             confidence_percent=df.iloc[2]["conf"]
         )
@@ -107,7 +96,7 @@ def show() :
             status_string=df.iloc[3]["status"],
             time=df.iloc[3]["report_time"],
             description=df.iloc[3]["description"],
-            tags=df.iloc[3]["tags"],
+            tags=df.iloc[3]["tags"].split(','),
             estimate_time=df.iloc[3]["est"],
             confidence_percent=df.iloc[3]["conf"]
         )
@@ -117,7 +106,7 @@ def show() :
             status_string=df.iloc[4]["status"],
             time=df.iloc[4]["report_time"],
             description=df.iloc[4]["description"],
-            tags=df.iloc[4]["tags"],
+            tags=df.iloc[4]["tags"].split(','),
             estimate_time=df.iloc[4]["est"],
             confidence_percent=df.iloc[4]["conf"]
         )
@@ -127,7 +116,11 @@ def show() :
             status_string=df.iloc[5]["status"],
             time=df.iloc[5]["report_time"],
             description=df.iloc[5]["description"],
-            tags=df.iloc[5]["tags"],
+            tags=df.iloc[5]["tags"].split(','),
             estimate_time=df.iloc[5]["est"],
             confidence_percent=df.iloc[5]["conf"]
         )
+
+
+# time.sleep(REFRESH_INTERVAL)
+# st.rerun()

@@ -1,102 +1,9 @@
-from confluent_kafka import Consumer
-from sklearn.preprocessing import MultiLabelBinarizer
-from fastavro import parse_schema, schemaless_reader
-import io, json, pandas as pd
-import time
-import math
+import pandas as pd
 import numpy as np
 import xgboost as xgb
-from datetime import datetime
-from datetime import datetime, timezone
-import re
+from sklearn.preprocessing import MultiLabelBinarizer
 import math
 import shap
-################## config here #######################################
-
-# current path used is the relative path from this folder route
-# open schema file, change path to your syatem path
-schema = {
-  "type": "record",
-  "name": "TraffyReport",
-  "fields": [
-    {"name": "ticket_id", "type": "string"},
-    {"name": "report_time", "type": "string"},
-    {"name": "address", "type": "string"},
-    {"name": "district", "type": "string"},         # <-- added
-    {"name": "subdistrict", "type": "string"},      # <-- added
-    {"name": "status", "type": "string"},
-    {"name": "description", "type": "string"},
-    {"name": "resolution", "type": "string"},
-    {"name": "reporting_agency", "type": "string"},
-    {"name": "tags", "type": "string"},
-    {"name": "upvotes", "type": "int"},
-    {"name": "image_url", "type": "string"},
-    {"name": "latitude", "type": ["null", "double"], "default": None},
-    {"name": "longitude", "type": ["null", "double"], "default": None}
-  ]
-}
-
-parsed_schema = parse_schema(schema)
-
-# Kafka consumer setup, please replace the server and and group if needed
-consumer = Consumer({
-    'bootstrap.servers': 'localhost:9092',
-    'group.id': 'traffy-csv-timer',
-    'auto.offset.reset': 'earliest'
-})
-
-# topic setup, change the text inside to the topic in producer
-consumer.subscribe(["traffy_reports"])
-
-# output path, where your csv will be at
-csv_path = "./realtime_scraping/out/traffy_reports_latest.csv"
-model_path = "./model.json"
-
-
-
-# set the amount to the same as producer
-report_per_scan = 6
-###################################################################
-
-
-def convert_thai_datetime(thai_str):
-    # Clean and normalize
-    thai_str = re.sub(r'น\.?|น', '', thai_str).strip()
-    parts = thai_str.split()
-
-    if len(parts) != 4:
-        raise ValueError(f"Unexpected datetime format: {thai_str}")
-
-    day = int(parts[0])
-    month_thai = parts[1]
-    year_be = int(parts[2])
-    time_part = parts[3]
-
-    month_map = {
-        'ม.ค.': 1, 'ก.พ.': 2, 'มี.ค.': 3, 'เม.ย.': 4,
-        'พ.ค.': 5, 'มิ.ย.': 6, 'ก.ค.': 7, 'ส.ค.': 8,
-        'ก.ย.': 9, 'ต.ค.': 10, 'พ.ย.': 11, 'ธ.ค.': 12
-    }
-
-    month = month_map.get(month_thai)
-    if not month:
-        raise ValueError(f"Unknown Thai month: {month_thai}")
-
-    year_ad = year_be + 2500 - 543 if year_be < 100 else year_be - 543
-
-    dt_str = f"{year_ad}-{month:02d}-{day:02d} {time_part}"
-    dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M")
-
-    # Return string without timezone (naive datetime)
-    #return dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # keep microseconds if needed
-    print(dt_str+':09.453003+00')
-    return dt_str+':09.453003+00'
-
-# Recreate the model with the same parameters
-model = xgb.Booster()
-
-# Load the model structure into the internal Booster
-model.load_model(model_path)
 
 district_office_location = {
     "พระนคร": (13.764928875843303, 100.49876110201305),
@@ -150,7 +57,6 @@ district_office_location = {
     "ทุ่งครุ": (13.61136886293151, 100.50876871494297),
     "บางบอน": (13.63394263372994, 100.3689626684714)
 }
-
 
 def get_office_location(district):
     return district_office_location[district]
@@ -255,85 +161,3 @@ def predict_time(model, problem_types, timestamp, coords, district, subdistrict)
     contrib_data.sort(key=lambda x: -x["confidence"])
 
     return preds, margins, estimated_time, total_conf, contrib_data
-
-# ตัวอย่างการเรียกใช้งาน:
-# preds, margins, est, conf, details = predict_time(
-#     model, ['คลอง','สัตว์จรจัด'], '2021-09-03 12:51:09.453003+00',
-#     "13.81865,100.53084", 'บางซื่อ', 'บางซื่อ'
-# )
-# print(f"Class probabilities: {preds}\nEstimated days: {est}\nConfidence: {conf}")
-
-print("🟢 Consumer started. Will overwrite every 5 minutes...")
-
-try:
-    while True:
-        batch = []
-        start_time = time.time()
-
-        # collect reports during interval
-        while len(batch) < report_per_scan:
-            msg = consumer.poll(timeout=1.0)
-            if msg is None:
-                continue
-            if msg.error():
-                print("Error:", msg.error())
-                continue
-
-            buf = io.BytesIO(msg.value())
-            report = schemaless_reader(buf, parsed_schema)
-            batch.append(report)
-
-        # save latest batch to CSV
-        if batch:
-            predicted_batch = []
-
-            for report in batch:
-                # Extract required input fields for prediction
-                tags_raw = report.get("tags", "")
-                tags = tags_raw.split(",") if isinstance(tags_raw, str) else tags_raw
-                raw_time_str = report.get("report_time", "")
-                try:
-                    time_str = convert_thai_datetime(raw_time_str)
-                except Exception as e:
-                    print(f"Failed to convert time '{raw_time_str}': {e}")
-                    time_str = ""
-                report["report_time"] = time_str
-                lat = report.get("latitude")
-                lon = report.get("longitude")
-                location = f"{lat},{lon}" if lat is not None and lon is not None else ""
-                district = report.get("district", "").removeprefix("เขต")
-                subdistrict = report.get("subdistrict", "").removeprefix("แขวง")
-
-                try:
-                    # Call your model prediction function
-                    print(tags)
-                    print( time_str)
-                    print( location)
-                    print( district)
-                    print( subdistrict)
-                    print(type(tags), type(time_str), type(location), type(district), type(subdistrict))
-                    preds, margins, est, conf, details = predict_time(
-                        model, tags, time_str, location, district, subdistrict
-                    )
-                except Exception as e:
-                    print(f"⚠️ Prediction failed for ticket_id {report.get('ticket_id')}: {e}")
-                    est, conf = None, None
-
-                # Add results to report
-                est_labels = ["1 day", "1-3 days", "3-7 days", "7-21 days", "21-90 days", "90+ days"]
-                if(est is None) :
-                    report["est"] = "Unknown"
-                else :
-                    report["est"] = est_labels[est]
-                report["conf"] = conf
-                predicted_batch.append(report)
-        
-        if predicted_batch:
-            df = pd.DataFrame(predicted_batch)
-            df.to_csv(csv_path, index=False, encoding='utf-8-sig')
-            print(f"✅ {len(df)} reports (with predictions) saved to {csv_path}.")
-    
-except KeyboardInterrupt:
-    print("Stopped by user.")
-finally:
-    consumer.close()

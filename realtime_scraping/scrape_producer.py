@@ -7,7 +7,7 @@ from fastavro import parse_schema, schemaless_writer
 # ========== CONFIG ==========
 KAFKA_TOPIC = "traffy_reports"
 KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
-interval = 60
+interval = 300
 report_per_scan = 6
 page_scrolled_amount = 500
 html_path = "./realtime_scraping/tmp/traffy.html"
